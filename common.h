@@ -52,6 +52,7 @@ void *memcpy(void *dst, const void *src, size_t n);
 char *strcpy(char *dst, const char *src);
 int strcmp(const char *s1, const char *s2);
 
+//void putchar(char ch);
 /*
 const char *fmt는 첫번째 인자로 출력 형식을 담을 문자열을 받는다.
 그리고 ...은 뒤에 몇개의 인자가 올지 모르고, 다양한 타입도 받을 수 있다고 컴파일러에게 알린다.

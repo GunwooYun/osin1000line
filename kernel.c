@@ -1,6 +1,104 @@
 #include "kernel.h"
 #include "common.h"
 
+#define PROCS_MAX 8 // 최대 프로세스 개수
+
+#define PROC_UNUSED 0 // 사용되지 않는 프로세스 구조체
+#define PROC_RUNNABLE 1 // 실행 가능한(runnable) 프로세스
+
+struct process {
+    int pid;             // 프로세스 ID
+    int state;           // 프로세스 상태: PROC_UNUSED 또는 PROC_RUNNABLE
+    vaddr_t sp;          // 스택 포인터
+    uint8_t stack[8192]; // 커널 스택
+};
+
+struct process procs[PROCS_MAX]; // 모든 프로세스 제어 구조체 배열
+
+struct process *proc_a; // Process A
+struct process *proc_b; // Process B
+
+
+void switch_context(uint32_t *prev_sp, uint32_t *next_sp);
+void delay(void);
+void putchar(char ch);
+
+void proc_a_entry(void)
+{
+    printf("starting process A\n");
+    while(1)
+    {
+        putchar('A');
+        switch_context(&proc_a->sp, &proc_b->sp);
+        delay();
+    }
+}
+
+void proc_b_entry(void)
+{
+    printf("starting process B\n");
+    while(1)
+    {
+        putchar('B');
+        switch_context(&proc_b->sp, &proc_a->sp);
+        delay();
+    }
+}
+
+
+
+void delay(void)
+{
+    for(int i = 0; i < 30000000; i++)
+    {
+        __asm__ __volatile__("nop"); // do nothing
+    }
+}
+struct process* create_process(uint32_t pc)
+{
+    // 미사용(UNUSED) 상태의 프로세스 구조체 찾기
+    struct process *proc = NULL;
+    int i;
+    for(i = 0; i < PROCS_MAX; i++)
+    {
+        if(procs[i].state == PROC_UNUSED)
+        {
+            proc = &procs[i];
+            break;
+        }
+    }
+
+    /* 유휴상태의 프로세스 슬롯 검색 실패 */
+    if(!proc)
+    {
+        PANIC("no free process slots");
+    }
+
+    // 커널 스택에 callee-saved 레지스터 공간을 미리 준비
+    // 첫 컨텍스트 스위치 시, switch_context에서 이 값들을 복원함
+    uint32_t *sp = (uint32_t *) &proc->stack[sizeof(proc->stack)]; // 스택포인터 꼭대기 위치
+    /* 스택 포인터로부터 역순으로 callee-saved 레지스터 초기화 */
+    *--sp = 0;                      // s11
+    *--sp = 0;                      // s10
+    *--sp = 0;                      // s9
+    *--sp = 0;                      // s8
+    *--sp = 0;                      // s7
+    *--sp = 0;                      // s6
+    *--sp = 0;                      // s5
+    *--sp = 0;                      // s4
+    *--sp = 0;                      // s3
+    *--sp = 0;                      // s2
+    *--sp = 0;                      // s1
+    *--sp = 0;                      // s0
+    *--sp = (uint32_t) pc;          // ra (처음 실행 시 점프할 주소)
+
+    // 구조체 필드 초기화
+    proc->pid = i + 1;
+    proc->state = PROC_RUNNABLE;
+    proc->sp = (uint32_t) sp;
+    return proc;
+}
+
 
 void kernel_entry(void);
 
@@ -29,9 +127,11 @@ struct sbiret sbi_call(long arg0,long arg1, long arg2, long arg3, long arg4,
 	return (struct sbiret){.error = a0, .value = a1};
 }
 
+#if 1
 void putchar(char ch){
 	sbi_call(ch, 0, 0, 0, 0, 0, 0, 1 /* Console Putchar */);
 }
+#endif
 
 
 paddr_t alloc_pages(uint32_t n)
@@ -62,8 +162,16 @@ void kernel_main(void){
 
     /* stvec
     Supervisor Trap Vector: S-Mode에서 트랩(예외/인터럽트)이 발생했을 때 점프할 기본 주소를 담은 레지스터 */
-    //WRITE_CSR(stvec, (uint32_t) kernel_entry);
+    WRITE_CSR(stvec, (uint32_t) kernel_entry);
     //__asm__ __volatile__("unimp");
+
+    /* process A, B 생성 */
+    proc_a = create_process((uint32_t) proc_a_entry);
+    proc_b = create_process((uint32_t) proc_b_entry);
+    proc_a_entry();
+
+    PANIC("unreachable here\n");
+
 
     paddr_t paddr0 = alloc_pages(2);
     paddr_t paddr1 = alloc_pages(1);
@@ -188,3 +296,45 @@ void kernel_entry(void)
     );
 }
 
+__attribute__((naked))
+void switch_context(uint32_t *prev_sp, uint32_t *next_sp)
+{
+    __asm__ __volatile__(
+       // 현재 프로세스의 스택에 callee-saved 레지스터를 저장
+       "addi sp, sp, -13 * 4\n" // 13개(4바이트씩) 레지스터 공간 확보
+        "sw ra,  0  * 4(sp)\n"   // callee-saved 레지스터만 저장
+        "sw s0,  1  * 4(sp)\n"
+        "sw s1,  2  * 4(sp)\n"
+        "sw s2,  3  * 4(sp)\n"
+        "sw s3,  4  * 4(sp)\n"
+        "sw s4,  5  * 4(sp)\n"
+        "sw s5,  6  * 4(sp)\n"
+        "sw s6,  7  * 4(sp)\n"
+        "sw s7,  8  * 4(sp)\n"
+        "sw s8,  9  * 4(sp)\n"
+        "sw s9,  10 * 4(sp)\n"
+        "sw s10, 11 * 4(sp)\n"
+        "sw s11, 12 * 4(sp)\n"
+
+        // 스택 포인터 교체
+        "sw sp, (a0)\n"         // *prev_sp = sp
+        "lw sp, (a1)\n"         // sp를 다음 프로세스의 값으로 변경
+
+        // 다음 프로세스 스택에서 callee-saved 레지스터 복원
+        "lw ra,  0  * 4(sp)\n"
+        "lw s0,  1  * 4(sp)\n"
+        "lw s1,  2  * 4(sp)\n"
+        "lw s2,  3  * 4(sp)\n"
+        "lw s3,  4  * 4(sp)\n"
+        "lw s4,  5  * 4(sp)\n"
+        "lw s5,  6  * 4(sp)\n"
+        "lw s6,  7  * 4(sp)\n"
+        "lw s7,  8  * 4(sp)\n"
+        "lw s8,  9  * 4(sp)\n"
+        "lw s9,  10 * 4(sp)\n"
+        "lw s10, 11 * 4(sp)\n"
+        "lw s11, 12 * 4(sp)\n"
+        "addi sp, sp, 13 * 4\n"
+        "ret\n"
+    );
+}

@@ -1,6 +1,11 @@
 #include "common.h"
 
 void putchar(char ch);
+#if 0
+void putchar(char ch){
+	sbi_call(ch, 0, 0, 0, 0, 0, 0, 1 /* Console Putchar */);
+}
+#endif
 
 void printf(const char* fmt, ...)
 {
