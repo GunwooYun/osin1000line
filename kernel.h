@@ -3,6 +3,8 @@
 
 #include "common.h"
 
+extern char __kernel_base[];    // linker script 변수
+
 /*
 do-while(0) 으로 감싸는 이유는 매크로 전체를 하나의 실행 단위로 만들어주기 때문이다.
 그래서 세미콜론과 같은 문제를 해결해 줄 수 있다.
@@ -25,6 +27,21 @@ else
     } while (0)
 
 #define PAGE_SIZE 4096
+
+#define SATP_SV32 (1u << 31) // satp 레지스터에서 "Sv32 모드 페이지 활성화" 비트
+#define PAGE_V    (1 << 0)   // "Valid" 비트 (엔트리가 유효함을 의미)
+#define PAGE_R    (1 << 1)   // 읽기 가능
+#define PAGE_W    (1 << 2)   // 쓰기 가능
+#define PAGE_X    (1 << 3)   // 실행 가능
+#define PAGE_U    (1 << 4)   // 사용자 모드 접근 가능
+
+struct process {
+    int pid;             // 프로세스 ID
+    int state;           // 프로세스 상태: PROC_UNUSED 또는 PROC_RUNNABLE
+    vaddr_t sp;          // 스택 포인터
+    uint32_t *page_table;
+    uint8_t stack[8192]; // 커널 스택
+};
 
 struct sbiret{
 	long error;

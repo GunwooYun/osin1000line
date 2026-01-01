@@ -6,22 +6,61 @@
 #define PROC_UNUSED 0 // 사용되지 않는 프로세스 구조체
 #define PROC_RUNNABLE 1 // 실행 가능한(runnable) 프로세스
 
-struct process {
-    int pid;             // 프로세스 ID
-    int state;           // 프로세스 상태: PROC_UNUSED 또는 PROC_RUNNABLE
-    vaddr_t sp;          // 스택 포인터
-    uint8_t stack[8192]; // 커널 스택
-};
 
 struct process procs[PROCS_MAX]; // 모든 프로세스 제어 구조체 배열
 
 struct process *proc_a; // Process A
 struct process *proc_b; // Process B
 
+struct process *current_proc;   // 현재 실행 중인 프로세스
+struct process *idle_proc;      // Idle 프로세스
 
 void switch_context(uint32_t *prev_sp, uint32_t *next_sp);
 void delay(void);
 void putchar(char ch);
+paddr_t alloc_pages(uint32_t n);
+void kernel_entry(void);
+void map_page(uint32_t *table1, uint32_t vaddr, paddr_t paddr, uint32_t flags);
+
+extern char __bss[], __bss_end[], __stack_top[];
+extern char __free_ram[], __free_ram_end[]; // 메모리 할당 영역
+
+void yield(void)
+{
+    // 실행 가능한 프로세스를 탐색
+    struct process *next = idle_proc;
+    for (int i = 0; i < PROCS_MAX; i++)
+    {
+        // 예: 현재 프로세스 PID:3 -> PCB 3, 4, 5, 6, 7, 0, 1, 2
+        struct process *proc = &procs[(current_proc->pid + i) % PROCS_MAX];
+        if (proc->state == PROC_RUNNABLE && proc->pid > 0)
+        {
+            next = proc;
+            break;
+        }
+    }
+
+    // 현재 프로세스 말고 실행 가능한 프로세스 없으면, 그냥 리턴
+    if(next == current_proc)
+    {
+        return;
+    }
+
+    __asm__ __volatile__(
+        "sfence.vma\n"
+        "csrw satp, %[satp]\n"
+        "sfence.vma\n"
+        "csrw sscratch, %[sscratch]\n"
+        :
+        : [satp] "r" (SATP_SV32 | ((uint32_t) next->page_table / PAGE_SIZE)),
+          [sscratch] "r" ((uint32_t) &next->stack[sizeof(next->stack)])
+    );
+
+    // 컨텍스트 스위칭
+    struct process *prev = current_proc;
+    current_proc = next;
+    switch_context(&prev->sp, &next->sp);
+}
 
 void proc_a_entry(void)
 {
@@ -29,7 +68,8 @@ void proc_a_entry(void)
     while(1)
     {
         putchar('A');
-        switch_context(&proc_a->sp, &proc_b->sp);
+        yield();
+        //switch_context(&proc_a->sp, &proc_b->sp);
         delay();
     }
 }
@@ -40,7 +80,8 @@ void proc_b_entry(void)
     while(1)
     {
         putchar('B');
-        switch_context(&proc_b->sp, &proc_a->sp);
+        yield();
+        //switch_context(&proc_b->sp, &proc_a->sp);
         delay();
     }
 }
@@ -92,18 +133,24 @@ struct process* create_process(uint32_t pc)
     *--sp = 0;                      // s0
     *--sp = (uint32_t) pc;          // ra (처음 실행 시 점프할 주소)
 
+    // Map 커널 페이지
+    uint32_t *page_table = (uint32_t *) alloc_pages(1);
+
+    for(paddr_t paddr = (paddr_t) __kernel_base; paddr < (paddr_t)__free_ram_end; paddr += PAGE_SIZE)
+    {
+        map_page(page_table, paddr, paddr, PAGE_R | PAGE_W | PAGE_X);
+    }
+
+
     // 구조체 필드 초기화
     proc->pid = i + 1;
     proc->state = PROC_RUNNABLE;
     proc->sp = (uint32_t) sp;
+    proc->page_table = page_table;
     return proc;
 }
 
 
-void kernel_entry(void);
-
-extern char __bss[], __bss_end[], __stack_top[];
-extern char __free_ram[], __free_ram_end[]; // 메모리 할당 영역
 
 struct sbiret sbi_call(long arg0,long arg1, long arg2, long arg3, long arg4,
 						long arg5, long fid, long eid){
@@ -165,12 +212,19 @@ void kernel_main(void){
     WRITE_CSR(stvec, (uint32_t) kernel_entry);
     //__asm__ __volatile__("unimp");
 
-    /* process A, B 생성 */
-    proc_a = create_process((uint32_t) proc_a_entry);
-    proc_b = create_process((uint32_t) proc_b_entry);
-    proc_a_entry();
+    // PID 0 process 생성
+    idle_proc = create_process((uint32_t) NULL);
+    idle_proc->pid = 0; // idle
+    current_proc = idle_proc;
 
-    PANIC("unreachable here\n");
+    /* process A, B 생성 */
+    proc_a = create_process((uint32_t) proc_a_entry); // 함수 주소를 넣음
+    proc_b = create_process((uint32_t) proc_b_entry);
+    //proc_a_entry();
+
+    yield();
+
+    PANIC("switched to idle process\n");
 
 
     paddr_t paddr0 = alloc_pages(2);
@@ -217,7 +271,8 @@ __attribute__((aligned(4))) // 함수 시작 주소를 4바이트 경계에 맞�
 void kernel_entry(void)
 {
     __asm__ __volatile__(
-        "csrw sscratch, sp\n"       // 현재 스택포인터를 임시 저장용 CSR인 sscratch에 저장
+        //"csrw sscratch, sp\n"       // 현재 스택포인터를 임시 저장용 CSR인 sscratch에 저장
+        "csrrw sp, sscratch, sp\n"       // Control and Status Register Read and Write, "CPU의 sp 레지스터와 sscratch 레지스터의 값을 서로 맞바꿔라(Swap)"
         "addi sp, sp, -4 * 31\n"    // 모든 레지스터(31개)를 저장할 공간을 스택에 확보
         "sw ra,  4 * 0(sp)\n"       // ra부터 s11까지 모든 일반 레지스터 값을 스택에 하나씩 (sw, store word) 저장
         "sw gp,  4 * 1(sp)\n"
@@ -254,12 +309,16 @@ void kernel_entry(void)
         "csrr a0, sscratch\n"       // sscratch에 저장해놓은 sp 값을 a0로 가져옴
         "sw a0, 4 * 30(sp)\n"       // 스택의 마지막 인덱스 30에 원래 sp 값 저장
 
+        // Reset the kernel stack.
+        "addi a0, sp, 4 * 31\n"
+        "csrw sscratch, a0\n"
+
         "mv a0, sp\n"               // 현재 스택의 시작 주소를 a0에 저장
         "call handle_trap\n"        // handle_trap 함수 호출
 
         /* 상태(context) 복원 */
         "lw ra,  4 * 0(sp)\n"       // 스택에 저장해뒀던 값들을 레지스터에 다시 lw(load word) 로드 */
-        "lw gp,  4 * 1(sp)\n"
+     
         "lw tp,  4 * 2(sp)\n"
         "lw t0,  4 * 3(sp)\n"
         "lw t1,  4 * 4(sp)\n"
@@ -337,4 +396,32 @@ void switch_context(uint32_t *prev_sp, uint32_t *next_sp)
         "addi sp, sp, 13 * 4\n"
         "ret\n"
     );
+}
+
+void map_page(uint32_t *table1, uint32_t vaddr, paddr_t paddr, uint32_t flags)
+{
+    // 가상 메모리와 물리 메모리는 4KB(PAGE_SIZE) 로 관리
+    // 주소의 하위 12비트는 Offset으로 사용, 매핑할 주소의 하위 12비트가 0이 아니면 오작동
+    if (!is_aligned(vaddr, PAGE_SIZE))
+    {
+        PANIC("unaligned vaddr %x", vaddr);
+    }
+
+    if (!is_aligned(paddr, PAGE_SIZE))
+    {
+        PANIC("unaligned paddr %x", paddr);
+    }
+    
+    uint32_t vpn1 = (vaddr >> 22) & 0x3FF; // 상위 10비트 추출, 1단계 테이블 인덱스로 사용
+    if((table1[vpn1] & PAGE_V) == 0)         // 2단계 테이블이 아직 없음
+    {
+        uint32_t pt_paddr = alloc_pages(1); // 2단계 테이블로 쓸 새로운 페이지 할당
+        table1[vpn1] = ((pt_paddr / PAGE_SIZE) << 10) | PAGE_V; // 새로운 2단계 페이지의 주소를 1단계 테이블에 등록
+        // 주소를 PAGE_SIZE로 나누는 이유는 PTE에 주소 전체가 아닌 PPN (페이지 번호)를 넣어야 하기 때문
+    }
+
+    // 2단계 페이지 테이블 엔트리에 물리 페이지 번호와 플래그 설정
+    uint32_t vpn0 = (vaddr >> 12) & 0x3FF;
+    uint32_t *table0 = (uint32_t *)((table1[vpn1] >> 10) * PAGE_SIZE); // 2단계 테이블 주소 계산
+    table0[vpn0] = ((paddr / PAGE_SIZE) << 10) | flags | PAGE_V; // 최종 물리 주소 매핑
 }

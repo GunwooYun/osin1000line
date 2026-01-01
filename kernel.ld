@@ -3,6 +3,9 @@ ENTRY(boot)
 SECTIONS {
 	. = 0x80200000; /* BASE ADDRESS */
 
+    /* . = 0x80200000 줄 뒤에 정의해야 함. 순서가 바뀌면 __kernel_base 값이 0이 됨 */
+    __kernel_base = .;
+
 	/* 코드가 저장되는 섹션 */
 	.text :{ 
 		/* 모든 입력파일에서 .text.boot 섹션을 가져와 앞에 배치
