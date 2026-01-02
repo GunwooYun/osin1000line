@@ -3,6 +3,12 @@
 
 #include "common.h"
 
+// 애플리케이션 이미지의 기본 가상 주소, user.ld 정의된 시작 주소와 일치
+#define USER_BASE 0x1000000
+
+// U-Mode 로 진입할 때 하드웨어 인터럽트 활성화, stvec 레지스터에 설정된 핸들러 호출
+#define SSTATUS_SPIE (1 << 5)
+
 extern char __kernel_base[];    // linker script 변수
 
 /*

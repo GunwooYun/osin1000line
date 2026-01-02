@@ -25,6 +25,8 @@ void map_page(uint32_t *table1, uint32_t vaddr, paddr_t paddr, uint32_t flags);
 extern char __bss[], __bss_end[], __stack_top[];
 extern char __free_ram[], __free_ram_end[]; // 메모리 할당 영역
 
+extern char _binary_shell_bin_start[], _binary_shell_bin_size[];
+
 void yield(void)
 {
     // 실행 가능한 프로세스를 탐색
@@ -62,6 +64,18 @@ void yield(void)
     switch_context(&prev->sp, &next->sp);
 }
 
+__attribute__((naked)) void user_entry(void)
+{
+    __asm__ __volatile__(
+        "csrw sepc, %[sepc]        \n"
+        "csrw sstatus, %[sstatus]  \n"
+        "sret                      \n"
+        :
+        : [sepc] "r" (USER_BASE),
+          [sstatus] "r" (SSTATUS_SPIE)
+    );
+}
+
 void proc_a_entry(void)
 {
     printf("starting process A\n");
@@ -95,7 +109,8 @@ void delay(void)
         __asm__ __volatile__("nop"); // do nothing
     }
 }
-struct process* create_process(uint32_t pc)
+//struct process* create_process(uint32_t pc)
+struct process* create_process(const void *image, size_t image_size)
 {
     // 미사용(UNUSED) 상태의 프로세스 구조체 찾기
     struct process *proc = NULL;
@@ -131,7 +146,8 @@ struct process* create_process(uint32_t pc)
     *--sp = 0;                      // s2
     *--sp = 0;                      // s1
     *--sp = 0;                      // s0
-    *--sp = (uint32_t) pc;          // ra (처음 실행 시 점프할 주소)
+    //*--sp = (uint32_t) pc;          // ra (처음 실행 시 점프할 주소)
+    *--sp = (uint32_t) user_entry;      // 처음 실행 시 점프할 주소
 
     // Map 커널 페이지
     uint32_t *page_table = (uint32_t *) alloc_pages(1);
@@ -141,6 +157,19 @@ struct process* create_process(uint32_t pc)
         map_page(page_table, paddr, paddr, PAGE_R | PAGE_W | PAGE_X);
     }
 
+    // Map user pages.
+    for (uint32_t off = 0; off < image_size; off += PAGE_SIZE)
+    {
+        paddr_t page = alloc_pages(1);
+
+        // Handle the case where the data to be copied is smaller than the page size.
+        size_t remaining = image_size - off;
+        size_t copy_size = PAGE_SIZE <= remaining ? PAGE_SIZE : remaining;
+
+        // Fill and map the page.
+        memcpy((void *) page, image + off, copy_size);
+        map_page(page_table, USER_BASE + off, page, PAGE_U | PAGE_R | PAGE_W | PAGE_X);
+    }
 
     // 구조체 필드 초기화
     proc->pid = i + 1;
@@ -197,7 +226,8 @@ paddr_t alloc_pages(uint32_t n)
     return paddr;
 }
 
-void kernel_main(void){
+void kernel_main(void)
+{
 	memset(__bss, 0x00, (size_t)__bss_end - (size_t)__bss);
 
     /*
@@ -213,14 +243,17 @@ void kernel_main(void){
     //__asm__ __volatile__("unimp");
 
     // PID 0 process 생성
-    idle_proc = create_process((uint32_t) NULL);
+    //idle_proc = create_process((uint32_t) NULL);
+    idle_proc = create_process(NULL, 0);
     idle_proc->pid = 0; // idle
     current_proc = idle_proc;
 
     /* process A, B 생성 */
-    proc_a = create_process((uint32_t) proc_a_entry); // 함수 주소를 넣음
-    proc_b = create_process((uint32_t) proc_b_entry);
+    //proc_a = create_process((uint32_t) proc_a_entry); // 함수 주소를 넣음
+    //proc_b = create_process((uint32_t) proc_b_entry);
     //proc_a_entry();
+
+    create_process(_binary_shell_bin_start, (size_t) _binary_shell_bin_size);
 
     yield();
 
