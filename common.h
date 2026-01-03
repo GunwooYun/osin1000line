@@ -16,6 +16,11 @@ typedef uint32_t vaddr_t; // 가상 메모리 주소
 
 #define NULL ((void *)0)
 
+/* system call */
+#define SYS_PUTCHAR     1
+#define SYS_GETCHAR     2
+#define SYS_EXIT        3
+
 /*
 value를 align 배수로 맞춰 올림
 여기서 align은 2의 거듭제급이어야 함

@@ -9,6 +9,9 @@
 // U-Mode 로 진입할 때 하드웨어 인터럽트 활성화, stvec 레지스터에 설정된 핸들러 호출
 #define SSTATUS_SPIE (1 << 5)
 
+#define SCAUSE_ECALL    8
+#define PROC_EXITED     2
+
 extern char __kernel_base[];    // linker script 변수
 
 /*

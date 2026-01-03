@@ -209,6 +209,12 @@ void putchar(char ch){
 }
 #endif
 
+long getchar(void)
+{
+    struct sbiret ret = sbi_call(0, 0, 0, 0, 0, 0, 0, 2);
+    return ret.error;
+}
+
 
 paddr_t alloc_pages(uint32_t n)
 {
@@ -290,15 +296,63 @@ void boot(void){
 		);
 }
 
+void handle_syscall(struct trap_frame *f)
+{
+    switch(f->a3) // a3에 syscall no 저장
+    {
+        case SYS_PUTCHAR:
+        {
+            putchar(f->a0); // a0 에 ch 저장
+            break;
+        }
+        case SYS_GETCHAR:
+        {
+            while(1)
+            {
+                long ch = getchar();
+                if(ch >= 0)
+                {
+                    f->a0 = ch;
+                    break;
+                }
+                yield(); // 단순 반복 호출 시, 다른 프로세스가 실행 X, CPU를 양보
+            }
+            break;
+        }
+        case SYS_EXIT:
+        {
+            printf("process %d exited\n", current_proc->pid);
+            current_proc->state = PROC_EXITED; // process 상태 변경
+            yield(); // 다른 프로세스를 cpu에 양보
+            PANIC("unreachable\n");
+        }
+        default:
+        {
+           PANIC("unexpected syscall a3=%x\n", f->a3); 
+        }
+    }
+}
+
 void handle_trap(struct trap_frame *f)
 {
     uint32_t scause = READ_CSR(scause); // 어떤 이유로 예외가 발생했는지에 대한 정보
     uint32_t stval = READ_CSR(stval);   // 예외 부가 정보(잘못된 메모리, 주소)
     uint32_t user_pc = READ_CSR(sepc);  // 예외가 일어난 시점의 PC 정보
 
-    PANIC("unexpected trap scause=%x, stval=%x, sepc=%x\n", scause, stval, user_pc);
+    // ecall 명령어 확인
+    if (scause == SCAUSE_ECALL)
+    {
+        handle_syscall(f);
+        user_pc += 4; // sepc가 예외를 발생시킨 명령어 가리킴. 변경 안할 시, ecall 명령어 반복
+    }
+    else
+    {
+        PANIC("unexpected trap scause=%x, stval=%x, sepc=%x\n", scause, stval, user_pc);
+    }
+    WRITE_CSR(sepc, user_pc);
 }
 
+// 예외 트랩 핸들러
 __attribute__((naked))
 __attribute__((aligned(4))) // 함수 시작 주소를 4바이트 경계에 맞추기 위함
 void kernel_entry(void)
