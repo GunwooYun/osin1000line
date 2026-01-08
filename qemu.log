@@ -1,0 +1,153 @@
+CPU Reset (CPU 0)
+ V      =   0
+ pc       00000000
+ mhartid  00000000
+ mstatus  00000000
+ mstatush 00000000
+ hstatus  00000000
+ vsstatus 00000000
+ mip      00000000
+ mie      00000000
+ mideleg  00001444
+ hideleg  00000000
+ medeleg  00000000
+ hedeleg  00000000
+ mtvec    00000000
+ stvec    00000000
+ vstvec   00000000
+ mepc     00000000
+ sepc     00000000
+ vsepc    00000000
+ mcause   00000000
+ scause   00000000
+ vscause  00000000
+ mtval    00000000
+ stval    00000000
+ htval    00000000
+ mtval2   00000000
+ mscratch 00000000
+ sscratch 00000000
+ satp     00000000
+ x0/zero  00000000 x1/ra    00000000 x2/sp    00000000 x3/gp    00000000
+ x4/tp    00000000 x5/t0    00000000 x6/t1    00000000 x7/t2    00000000
+ x8/s0    00000000 x9/s1    00000000 x10/a0   00000000 x11/a1   00000000
+ x12/a2   00000000 x13/a3   00000000 x14/a4   00000000 x15/a5   00000000
+ x16/a6   00000000 x17/a7   00000000 x18/s2   00000000 x19/s3   00000000
+ x20/s4   00000000 x21/s5   00000000 x22/s6   00000000 x23/s7   00000000
+ x24/s8   00000000 x25/s9   00000000 x26/s10  00000000 x27/s11  00000000
+ x28/t3   00000000 x29/t4   00000000 x30/t5   00000000 x31/t6   00000000
+CPU Reset (CPU 0)
+ V      =   0
+ pc       00001000
+ mhartid  00000000
+ mstatus  00000000
+ mstatush 00000000
+ hstatus  00000000
+ vsstatus 00000000
+ mip      00000000
+ mie      00000000
+ mideleg  00001444
+ hideleg  00000000
+ medeleg  00000000
+ hedeleg  00000000
+ mtvec    00000000
+ stvec    00000000
+ vstvec   00000000
+ mepc     00000000
+ sepc     00000000
+ vsepc    00000000
+ mcause   00000000
+ scause   00000000
+ vscause  00000000
+ mtval    00000000
+ stval    00000000
+ htval    00000000
+ mtval2   00000000
+ mscratch 00000000
+ sscratch 00000000
+ satp     00000000
+ x0/zero  00000000 x1/ra    00000000 x2/sp    00000000 x3/gp    00000000
+ x4/tp    00000000 x5/t0    00000000 x6/t1    00000000 x7/t2    00000000
+ x8/s0    00000000 x9/s1    00000000 x10/a0   00000000 x11/a1   00000000
+ x12/a2   00000000 x13/a3   00000000 x14/a4   00000000 x15/a5   00000000
+ x16/a6   00000000 x17/a7   00000000 x18/s2   00000000 x19/s3   00000000
+ x20/s4   00000000 x21/s5   00000000 x22/s6   00000000 x23/s7   00000000
+ x24/s8   00000000 x25/s9   00000000 x26/s10  00000000 x27/s11  00000000
+ x28/t3   00000000 x29/t4   00000000 x30/t5   00000000 x31/t6   00000000
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000002, epc:0x800086de, tval:0x3c0028f3, desc=illegal_instruction
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000002, epc:0x80009bb2, tval:0xb1302873, desc=illegal_instruction
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000002, epc:0x8000957a, tval:0xda002573, desc=illegal_instruction
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000002, epc:0x800095be, tval:0xfb002573, desc=illegal_instruction
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000002, epc:0x80009612, tval:0x30c02673, desc=illegal_instruction
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000003, epc:0x8000c274, tval:0x00000000, desc=breakpoint
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall
+riscv_cpu_do_interrupt: hart:0, async:0, cause:00000009, epc:0x802006d6, tval:0x00000000, desc=supervisor_ecall

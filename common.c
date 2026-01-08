@@ -60,7 +60,7 @@ void printf(const char* fmt, ...)
                     while(divisor > 0)
                     {
                         putchar ('0' + magnitude / divisor); // ascii 코드로 변환 후 출력
-                        magnitude = divisor % magnitude; // 아래 자리 구하기 (예: 277이면 77)
+                        magnitude %= divisor; // 아래 자리 구하기 (예: 277이면 77)
                         divisor /= 10; // divisor 자리수 줄이기
                     }
                     break;

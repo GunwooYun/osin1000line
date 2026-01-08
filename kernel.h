@@ -44,6 +44,106 @@ else
 #define PAGE_X    (1 << 3)   // 실행 가능
 #define PAGE_U    (1 << 4)   // 사용자 모드 접근 가능
 
+// kernel.h
+
+// 상수 및 레지스터 정의 (MMIO)
+#define SECTOR_SIZE       512    // 디스크 읽기/쓰기 기본 단위 (512바이트)
+#define VIRTQ_ENTRY_NUM   16     // Virtqueue 내 디스크립터 개수 (큐의 크기)
+#define VIRTIO_DEVICE_BLK 2      // VirtIO 장치 유형 중 '블록 장치'를 의미하는 ID
+#define VIRTIO_BLK_PADDR  0x10001000 // QEMU virt 머신에서 블록 장치가 매핑된 MMIO 시작 주소
+
+// VirtIO 제어 레지스터 오프셋 (VIRTIO_BLK_PADDR로부터의 거리)
+#define VIRTIO_REG_MAGIC         0x00   // 매직 넘버 (0x74726976, "virt"인지 확인용)
+#define VIRTIO_REG_VERSION       0x04   // 장치 버전 정보
+#define VIRTIO_REG_DEVICE_ID     0x08   // 장치 종류 ID (2면 블록 장치)
+#define VIRTIO_REG_PAGE_SIZE     0x28   // 게스트의 페이지 크기 설정
+#define VIRTIO_REG_QUEUE_SEL     0x30   // 설정을 변경할 큐 선택
+#define VIRTIO_REG_QUEUE_NUM_MAX 0x34   // 선택된 큐의 최대 크기 확인
+#define VIRTIO_REG_QUEUE_NUM     0x38   // 사용할 큐의 크기 설정
+#define VIRTIO_REG_QUEUE_PFN     0x40   // 큐의 물리 주소(페이지 번호) 설정
+#define VIRTIO_REG_QUEUE_READY   0x44   // 큐 사용 준비 완료 신호
+#define VIRTIO_REG_QUEUE_NOTIFY  0x50   // 장치에게 큐를 확인하라고 알림 (Kick)
+#define VIRTIO_REG_DEVICE_STATUS 0x70   // 장치 상태(초기화 단계) 설정 및 확인
+#define VIRTIO_REG_DEVICE_CONFIG 0x100  // 장치별 특수 설정 영역 시작점
+
+// 장치 상태 비트
+#define VIRTIO_STATUS_ACK        1      // 장치를 인식함
+#define VIRTIO_STATUS_DRIVER     2      // 드라이버가 어떻게 구동할지 알고 있음
+#define VIRTIO_STATUS_DRIVER_OK  4      // 드라이버 초기화 완료 및 작동 시작
+
+// 디스크립터 플래그
+#define VIRTQ_DESC_F_NEXT          1    // 다음 디스크립터가 이어진다는 표시 (Chaining)
+#define VIRTQ_DESC_F_WRITE         2    // 장치가 이 메모리에 값을 쓴다는 표시 (디스크 읽기 시 사용)
+
+// Avail 링 플래그
+#define VIRTQ_AVA_F_NO_INTERRUPT 1    // 처리가 끝나도 인터럽트를 발생시키지 말라는 요청
+
+// 블록 장치 요청 타입
+#define VIRTIO_BLK_T_IN  0              // 디스크 읽기
+#define VIRTIO_BLK_T_OUT 1              // 디스크 쓰기
+
+
+// virtqueue 구조체
+
+// Virtqueue Descriptor Table entry: 데이터의 위치와 크기 정보를 담는 칸
+struct virtq_desc {
+    uint64_t addr;  // 데이터가 저장된 메모리의 물리 주소
+    uint32_t len;   // 데이터의 길이
+    uint16_t flags; // NEXT, WRITE 등 플래그
+    uint16_t next;  // 다음 디스크립터 번호 (Chaining 시 사용)
+} __attribute__((packed));
+
+// Virtqueue Available Ring: 드라이버가 장치에게 줄 작업 목록
+struct virtq_avail {
+    uint16_t flags;
+    uint16_t index; // 다음에 쓸 링의 인덱스
+    uint16_t ring[VIRTQ_ENTRY_NUM]; // 디스크립터 번호들의 배열
+} __attribute__((packed));
+
+// Virtqueue Used Ring entry: 장치가 처리를 완료한 항목 정보
+struct virtq_used_elem {
+    uint32_t id;    // 완료된 디스크립터 체인의 시작 번호
+    uint32_t len;   // 장치가 쓴 데이터의 총 길이
+} __attribute__((packed));
+
+// Virtqueue Used Ring: 장치가 드라이버에게 돌려줄 작업 완료 목록
+struct virtq_used {
+    uint16_t flags;
+    uint16_t index; // 장치가 다음에 쓸 인덱스
+    struct virtq_used_elem ring[VIRTQ_ENTRY_NUM];
+} __attribute__((packed));
+
+// Virtqueue 전체 구조: 세 영역을 하나로 묶음
+struct virtio_virtq {
+    struct virtq_desc descs[VIRTQ_ENTRY_NUM]; // 디스크립터 테이블
+    struct virtq_avail avail;                 // Avail 링
+    struct virtq_used used __attribute__((aligned(PAGE_SIZE))); // Used 링 (페이지 정렬 필수)
+    int queue_index;            // 큐 번호
+    volatile uint16_t *used_index; // 장치가 갱신하는 Used 인덱스를 가리키는 포인터
+    uint16_t last_used_index;   // 드라이버가 마지막으로 확인한 Used 인덱스
+} __attribute__((packed));
+
+// 디스크 요청 구조체
+
+// 장치에 보낼 읽기/쓰기 요청 데이터 구조체
+struct virtio_blk_req {
+    // 첫 번째 디스크립터: 장치에게 보낼 명령 헤더 영역 (장치는 이 영역을 읽기만 함)
+    // 드라이버(커널)가 요청 종류(type)와 접근할 위치(sector)를 기입하여 장치에 전달한다.
+    uint32_t type;     // VIRTIO_BLK_T_IN(읽기) 또는 VIRTIO_BLK_T_OUT(쓰기)
+    uint32_t reserved; // 하드웨어 규약상 0으로 채워야 하는 예약 영역
+    uint64_t sector;   // 읽거나 쓰고자 하는 디스크의 섹터 번호
+
+    // 두 번째 디스크립터: 실제 데이터가 오가는 버퍼 영역
+    // 읽기(IN) 작업 시에는 장치가 이 메모리에 값을 써야 하므로 VIRTQ_DESC_F_WRITE 속성이 필수적이다.
+    // 쓰기(OUT) 작업 시에는 드라이버가 쓴 내용을 장치가 읽어가기만 하면 되므로 해당 플래그를 끈다.
+    uint8_t data[512];
+
+    // 세 번째 디스크립터: 장치가 작업 결과를 보고하는 상태 정보 영역
+    // 장치는 작업이 끝나면 성공 여부를 이 영역에 직접 기록해야 한다.
+    // 따라서 이 디스크립터에는 항상 장치의 쓰기 권한(VIRTQ_DESC_F_WRITE)이 부여되어야 한다.
+    uint8_t status;    // 0이면 성공, 그 외의 값은 에러를 의미한다.
+} __attribute__((packed));
+
 struct process {
     int pid;             // 프로세스 ID
     int state;           // 프로세스 상태: PROC_UNUSED 또는 PROC_RUNNABLE
