@@ -82,6 +82,40 @@ else
 #define VIRTIO_BLK_T_IN  0              // 디스크 읽기
 #define VIRTIO_BLK_T_OUT 1              // 디스크 쓰기
 
+// filesystem
+
+#define FILES_MAX      2 // OS가 동시에 관리할 수 있는 최대 파일 개수이다.
+// 파일 데이터 구조체들을 담기에 충분한 디스크 공간 크기를 계산하며, 섹터 단위로 올림 처리한다.
+#define DISK_MAX_SIZE  align_up(sizeof(struct file) * FILES_MAX, SECTOR_SIZE)
+
+struct tar_header {
+    char name[100];   // 파일의 경로를 포함한 이름이다.
+    char mode[8];     // 파일의 권한(8진수 문자열)이다.
+    char uid[8];      // 사용자 ID(8진수 문자열)이다.
+    char gid[8];      // 그룹 ID(8진수 문자열)이다.
+    char size[12];    // 파일 데이터의 크기(8진수 문자열)이다.
+    char mtime[12];   // 마지막 수정 시간(8진수 문자열)이다.
+    char checksum[8]; // 헤더의 유효성을 검사하기 위한 체크섬이다.
+    char type;        // 파일의 종류(일반 파일, 디렉터리 등)를 나타내는 플래그이다.
+    char linkname[100]; // 심볼릭 링크 시 연결된 대상 파일의 이름이다.
+    char magic[6];    // "ustar" 문자열이 들어가는 포맷 식별자이다.
+    char version[2];  // ustar 포맷의 버전이다.
+    char uname[32];   // 소유자 사용자 이름이다.
+    char gname[32];   // 소유자 그룹 이름이다.
+    char devmajor[8]; // 장치 파일일 경우의 메이저 번호이다.
+    char devminor[8]; // 장치 파일일 경우의 마이너 번호이다.
+    char prefix[155]; // 파일 이름이 100자를 넘을 경우 사용하는 접두사 영역이다.
+    char padding[12]; // 헤더 구조체 크기를 맞추기 위한 패딩이다.
+    char data[];      // Array pointing to the data area following the header
+                      // (flexible array member)
+} __attribute__((packed)); // 컴파일러의 비트 정렬 최적화를 방지하여 바이너리 규격을 강제한다.
+
+struct file {
+    bool in_use;      // Indicates if this file entry is in use
+    char name[100];   // File name
+    char data[1024];  // File content
+    size_t size;      // File size
+};
 
 // virtqueue 구조체
 

@@ -21,6 +21,8 @@ typedef uint32_t vaddr_t; // 가상 메모리 주소
 #define SYS_PUTCHAR     1
 #define SYS_GETCHAR     2
 #define SYS_EXIT        3
+#define SYS_READFILE    4
+#define SYS_WRITEFILE   5
 
 /*
 value를 align 배수로 맞춰 올림

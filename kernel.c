@@ -22,6 +22,9 @@ paddr_t alloc_pages(uint32_t n);
 void kernel_entry(void);
 void map_page(uint32_t *table1, uint32_t vaddr, paddr_t paddr, uint32_t flags);
 
+
+void read_write_disk(void *buf, unsigned sector, int is_write);
+
 extern char __bss[], __bss_end[], __stack_top[];
 extern char __free_ram[], __free_ram_end[]; // 메모리 할당 영역
 
@@ -48,7 +51,136 @@ bool virtq_is_busy(struct virtio_virtq *vq) {
     return vq->last_used_index != *vq->used_index;
 }
 
+/********************************************************************************************************
+***************************File System *****************************************************************
+********************************************************************************************************/
+struct file files[FILES_MAX]; // 커널이 메모리 상에서 관리할 파일 엔트리 배열이다.
+uint8_t disk[DISK_MAX_SIZE];  // 디스크 전체의 내용을 일시적으로 보관할 버퍼이다.
 
+// 파일 시스템에서 이름이 일치하는 파일을 검색한다.
+struct file *fs_lookup(const char *filename) {
+    for (int i = 0; i < FILES_MAX; i++) {
+        struct file *file = &files[i];
+        // 사용 중인 엔트리 중에서 인자로 받은 파일명과 일치하는 것을 찾는다.
+        if (!strcmp(file->name, filename))
+            return file;
+    }
+
+    // 파일을 찾지 못하면 NULL을 반환한다.
+    return NULL;
+}
+
+// TAR 헤더에 8진수 문자열로 저장된 값을 정수로 변환한다.
+int oct2int(char *oct, int len) {
+    int dec = 0;
+    for (int i = 0; i < len; i++) {
+        // 8진수 숫자 범위를 벗어나는 문자가 나오면 변환을 중단한다.
+        if (oct[i] < '0' || oct[i] > '7')
+            break;
+
+        // 기존 값에 8을 곱하고 새로운 숫자를 더해 10진수 값을 만든다.
+        dec = dec * 8 + (oct[i] - '0');
+    }
+    return dec;
+}
+
+void fs_init(void) {
+    // 1. 디스크의 모든 섹터를 반복하며 메모리 버퍼(disk)로 읽어온다.
+    for (unsigned sector = 0; sector < sizeof(disk) / SECTOR_SIZE; sector++)
+        read_write_disk(&disk[sector * SECTOR_SIZE], sector, false);
+
+    unsigned off = 0; // 바이너리 데이터를 탐색할 오프셋 변수이다.
+    for (int i = 0; i < FILES_MAX; i++) {
+        // 현재 오프셋 위치를 TAR 헤더 구조체로 해석한다.
+        struct tar_header *header = (struct tar_header *) &disk[off];
+
+        // 파일 이름의 첫 글자가 NULL이면 더 이상 파일이 없는 것으로 간주한다.
+        if (header->name[0] == '\0')
+            break;
+
+        // ustar 포맷 식별자가 일치하는지 검사하여 데이터 무결성을 확인한다.
+        if (strcmp(header->magic, "ustar") != 0)
+            PANIC("invalid tar header: magic=\"%s\"", header->magic);
+
+        // 2. 8진수 문자열로 된 파일 크기를 정수형으로 변환한다.
+        int filesz = oct2int(header->size, sizeof(header->size));
+        struct file *file = &files[i];
+
+        // 3. 추출한 메타데이터와 파일 본문(data)을 커널의 file 구조체로 복사한다.
+        file->in_use = true;
+        strcpy(file->name, header->name);
+        memcpy(file->data, header->data, filesz);
+        file->size = filesz;
+
+        printf("file: %s, size=%d\n", file->name, file->size);
+
+        // 4. 다음 파일의 헤더 위치로 이동한다. (헤더 크기 + 데이터 크기를 합친 후 섹터 단위 정렬).
+        off += align_up(sizeof(struct tar_header) + filesz, SECTOR_SIZE);
+    }
+}
+
+void fs_flush(void) {
+    // Copy all file contents into `disk` buffer.
+    // 디스크 버퍼를 0으로 초기화하여 이전 데이터나 잔여 값을 제거한다.
+    memset(disk, 0, sizeof(disk));
+    unsigned off = 0;
+    for (int file_i = 0; file_i < FILES_MAX; file_i++) {
+        struct file *file = &files[file_i];
+        // 현재 파일 엔트리가 사용 중이지 않으면 건너뛴다.
+        if (!file->in_use)
+            continue;
+
+        // 버퍼의 현재 오프셋 위치를 TAR 헤더 구조체로 지정하고 초기화한다.
+        struct tar_header *header = (struct tar_header *) &disk[off];
+        memset(header, 0, sizeof(*header));
+
+        // 파일 이름, 권한(644), ustar 식별자, 버전 등을 헤더에 기록한다.
+        strcpy(header->name, file->name);
+        strcpy(header->mode, "000644");
+        strcpy(header->magic, "ustar");
+        strcpy(header->version, "00");
+        header->type = '0'; // 일반 파일을 의미하는 타입 플래그를 설정한다.
+
+        // Turn the file size into an octal string.
+        // 정수형 파일 크기를 TAR 규격에 맞게 8진수 문자열로 변환하여 헤더에 저장한다.
+        int filesz = file->size;
+        for (int i = sizeof(header->size); i > 0; i--) {
+            header->size[i - 1] = (filesz % 8) + '0';
+            filesz /= 8;
+        }
+
+        // Calculate the checksum.
+        // TAR 헤더의 무결성을 검증하기 위한 체크섬을 계산한다.
+        // 체크섬 필드 자체는 공백(' ')으로 채워진 상태로 계산하는 것이 규약이다.
+        int checksum = ' ' * sizeof(header->checksum);
+        for (unsigned i = 0; i < sizeof(struct tar_header); i++)
+            checksum += (unsigned char) disk[off + i];
+
+        // 계산된 체크섬 값을 6자리의 8진수 문자열로 변환하여 헤더에 기록한다.
+        for (int i = 5; i >= 0; i--) {
+            header->checksum[i] = (checksum % 8) + '0';
+            checksum /= 8;
+        }
+
+        // Copy file data.
+        // 헤더 바로 뒷부분(header->data)에 실제 파일 내용을 복사한다.
+        memcpy(header->data, file->data, file->size);
+
+        // 다음 파일이 기록될 위치를 계산한다. (헤더+데이터 크기를 섹터 크기로 올림 정렬).
+        off += align_up(sizeof(struct tar_header) + file->size, SECTOR_SIZE);
+    }
+
+    // Write `disk` buffer into the virtio-blk.
+    // 구성을 마친 메모리 버퍼(`disk`)를 섹터 단위로 나누어 VirtIO 블록 장치에 실제 기록한다.
+    for (unsigned sector = 0; sector < sizeof(disk) / SECTOR_SIZE; sector++)
+        read_write_disk(&disk[sector * SECTOR_SIZE], sector, true);
+
+    printf("wrote %d bytes to disk\n", (int)sizeof(disk));
+}
+
+/********************************************************************************************************
+**************************************Disk IO******************************************************
+********************************************************************************************************/
 struct virtio_virtq *virtq_init(unsigned index) {
     // Virtqueue 구조체 크기만큼 물리 메모리 페이지를 할당받는다.
     // 구조체 내부에 PAGE_SIZE 정렬이 필요한 멤버(used)가 있으므로 정렬하여 할당한다.
@@ -435,6 +567,8 @@ void kernel_main(void)
 
     virtio_blk_init(); // virtio-blk 장치 초기화
 
+    fs_init();
+
     char buf[SECTOR_SIZE];
     read_write_disk(buf, 0, false /* read from the disk */);
     printf("first sector: %s\n", buf);
@@ -442,7 +576,7 @@ void kernel_main(void)
     strcpy(buf, "hello from kernel!!!\n");
     read_write_disk(buf, 0, true /* write to the disk */);
 
-#if 0
+#if 1
     // PID 0 process 생성
     //idle_proc = create_process((uint32_t) NULL);
     idle_proc = create_process(NULL, 0);
@@ -521,6 +655,43 @@ void handle_syscall(struct trap_frame *f)
             current_proc->state = PROC_EXITED; // process 상태 변경
             yield(); // 다른 프로세스를 cpu에 양보
             PANIC("unreachable\n");
+        }
+        case SYS_READFILE:
+        case SYS_WRITEFILE:
+        {
+            // 사용자 모드에서 전달한 인자(파일명, 버퍼 주소, 길이)를 추출한다.
+            const char *filename = (const char *) f->a0;
+            char *buf = (char *) f->a1;
+            int len = f->a2;
+
+            // 파일 시스템에서 해당 파일이 존재하는지 확인한다.
+            struct file *file = fs_lookup(filename);
+            if (!file) {
+                printf("file not found: %s\n", filename);
+                f->a0 = -1; // 실패 시 결과 레지스터 a0에 -1을 저장한다.
+                break;
+            }
+
+            // 요청한 길이가 파일 시스템이 지원하는 최대 크기를 넘지 않도록 제한한다.
+            if (len > (int) sizeof(file->data))
+                len = file->size;
+
+            // 쓰기 요청인 경우 (SYS_WRITEFILE)
+            if (f->a3 == SYS_WRITEFILE) {
+                // 사용자 버퍼에서 커널 내 파일 데이터 영역으로 복사한다.
+                memcpy(file->data, buf, len);
+                file->size = len;
+                // 변경된 내용을 실제 가상 디스크(VirtIO)에 반영한다.
+                fs_flush();
+            } else {
+                // 읽기 요청인 경우 (SYS_READFILE)
+                // 커널 내 파일 데이터를 사용자 버퍼로 복사하여 전달한다.
+                memcpy(buf, file->data, len);
+            }
+
+            // 처리된 바이트 수를 결과 레지스터 a0에 저장하여 사용자에게 알린다.
+            f->a0 = len;
+            break;
         }
         default:
         {
