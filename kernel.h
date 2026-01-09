@@ -88,6 +88,8 @@ else
 // 파일 데이터 구조체들을 담기에 충분한 디스크 공간 크기를 계산하며, 섹터 단위로 올림 처리한다.
 #define DISK_MAX_SIZE  align_up(sizeof(struct file) * FILES_MAX, SECTOR_SIZE)
 
+#define SSTATUS_SUM (1 << 18)
+
 struct tar_header {
     char name[100];   // 파일의 경로를 포함한 이름이다.
     char mode[8];     // 파일의 권한(8진수 문자열)이다.
